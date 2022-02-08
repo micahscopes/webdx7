@@ -89,6 +89,7 @@ public:
     int breath_cc;
     int foot_cc;
     int modwheel_cc;
+    int pan_cc;
 
     int masterTune;
 

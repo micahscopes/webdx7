@@ -23,7 +23,8 @@ const char* DX7::init(uint32_t bufsize, uint32_t sr, void* desc)
 	PitchEnv::init(sr);
 
 	bufsize_ = bufsize;
-	outbuf16_ = new int16_t[bufsize];
+	outbuf16L_ = new int16_t[bufsize];
+	outbuf16R_ = new int16_t[bufsize];
 	synth_unit_ = new SynthUnit(&ring_buffer_);
 	return 0;
 }
@@ -31,14 +32,17 @@ const char* DX7::init(uint32_t bufsize, uint32_t sr, void* desc)
 void DX7::terminate()
 {
 	delete synth_unit_;
-	delete [] outbuf16_;
+	delete [] outbuf16L_;
+	delete [] outbuf16R_;
 }
 
 void DX7::resize(uint32_t bufsize)
 {
-	delete [] outbuf16_;
+	delete [] outbuf16L_;
+	delete [] outbuf16R_;
 	bufsize_ = bufsize;
-	outbuf16_ = new int16_t[bufsize_];
+	outbuf16L_ = new int16_t[bufsize];
+	outbuf16R_ = new int16_t[bufsize];
 }
 
 void DX7::onMidi(WAM::byte status, WAM::byte data1, WAM::byte data2)
@@ -66,10 +70,13 @@ void DX7::onParam(uint32_t idparam, double value)
 void DX7::onProcess(WAM::AudioBus* audio, void* data)
 {
 	// mono 16-bit signed ints
-	synth_unit_->GetSamples(bufsize_, outbuf16_);
+	synth_unit_->GetSamples(bufsize_, outbuf16L_, outbuf16R_);
 
 	static const float scaler = 0.00003051757813;
-	float* outbuf = audio->outputs[0];
-	for (uint32_t n=0; n<bufsize_; n++)
-		outbuf[n] = outbuf16_[n] * scaler;
+	float* outbufL = audio->outputs[0];
+	float* outbufR = audio->outputs[1];
+	for (uint32_t n=0; n<bufsize_; n++) {
+		outbufL[n] = outbuf16L_[n] * scaler;
+		outbufR[n] = outbuf16R_[n] * scaler;
+	}
 }

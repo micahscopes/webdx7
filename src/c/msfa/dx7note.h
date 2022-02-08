@@ -36,14 +36,15 @@ struct VoiceStatus {
     char pitchStep;
 };
 
+
 class Dx7Note {
 public:
     Dx7Note(std::shared_ptr<TuningState> ts);
-    void init(const uint8_t patch[156], int midinote, int velocity);
+    void init(const uint8_t patch[156], int midinote, int velocity, int pan);
 
     // Note: this _adds_ to the buffer. Interesting question whether it's
     // worth it...
-    void compute(int32_t *buf, int32_t lfo_val, int32_t lfo_delay,
+    void compute(int32_t *buf, int32_t *bufL, int32_t *bufR, int32_t lfo_val, int32_t lfo_delay,
                  const Controllers *ctrls);
 
     void keyup();
@@ -60,6 +61,8 @@ public:
     void transferSignal(Dx7Note &src);
     void oscSync();
 
+    static void init_sr(double sr);
+
     int32_t osc_freq(int midinote, int mode, int coarse, int fine, int detune);
 
     std::shared_ptr<TuningState> tuning_state_;
@@ -68,7 +71,11 @@ public:
     int mpePressure = 0;
     int mpeTimbre = 0;
 
+    double target_panning = 64.0;
+
 private:
+    static double sample_rate;
+
     FmCore core_;
     Env env_[6];
     FmOpParams params_[6];
@@ -78,6 +85,8 @@ private:
     int32_t fb_shift_;
     int32_t ampmodsens_[6];
     int32_t opMode[6];
+    double current_panning=64.0;
+    double panning_intermediate=64.0;
 
     uint8_t playingMidiNote; // We need this for scale aware pitch bend
 

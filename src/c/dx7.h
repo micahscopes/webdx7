@@ -28,7 +28,8 @@ public:
 private:
 	RingBuffer ring_buffer_;
 	SynthUnit *synth_unit_;
-	int16_t* outbuf16_;
+	int16_t* outbuf16L_;
+	int16_t* outbuf16R_;
 	uint32_t bufsize_;
 };
 

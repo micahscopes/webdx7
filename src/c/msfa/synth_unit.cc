@@ -56,6 +56,7 @@ void SynthUnit::Init(double sample_rate) {
   Lfo::init(sample_rate);
   PitchEnv::init(sample_rate);
   Env::init_sr(sample_rate);
+  Dx7Note::init_sr(sample_rate);
 }
 
 SynthUnit::SynthUnit(RingBuffer *ring_buffer) {
@@ -77,6 +78,7 @@ SynthUnit::SynthUnit(RingBuffer *ring_buffer) {
   controllers_.foot_cc = 0;
   controllers_.breath_cc = 0;
   controllers_.aftertouch_cc = 0;
+  controllers_.pan_cc = 64;
   controllers_.refresh();
 
   sustain_ = false;
@@ -132,7 +134,7 @@ int SynthUnit::ProcessMidiMessage(const uint8_t *buf, int buf_size) {
   uint8_t cmd = buf[0];
   uint8_t cmd_type = cmd & 0xf0;
   //LOGI("got %d midi: %02x %02x %02x", buf_size, buf[0], buf[1], buf[2]);
-  if (cmd_type == 0x80 || (cmd_type == 0x90 && buf[2] == 0)) {
+ if (cmd_type == 0x80 || (cmd_type == 0x90 && buf[2] == 0)) {
     if (buf_size >= 3) {
       // note off
       for (int note = 0; note < max_active_notes; ++note) {
@@ -159,7 +161,10 @@ int SynthUnit::ProcessMidiMessage(const uint8_t *buf, int buf_size) {
         active_note_[note_ix].keydown = true;
         active_note_[note_ix].sustained = sustain_;
         active_note_[note_ix].live = true;
-        active_note_[note_ix].dx7_note->init((uint8_t *) unpacked_patch_, buf[1], buf[2]);
+        active_note_[note_ix].dx7_note->init((uint8_t *) unpacked_patch_, buf[1], buf[2],
+          controllers_.pan_cc
+          // (rand() % (127 - 0 + 1)) + 0
+        );
       }
       return 3;
     }
@@ -180,6 +185,9 @@ int SynthUnit::ProcessMidiMessage(const uint8_t *buf, int buf_size) {
     } else if (controller == 3) {
       controllers_.foot_cc = value;
       controllers_.refresh();
+    } else if (controller == 10) {
+      controllers_.pan_cc = value;
+      // controllers_.refresh();
     } else if (controller == 64) {
         sustain_ = value != 0;
         if (!sustain_) {
@@ -238,7 +246,7 @@ int SynthUnit::ProcessMidiMessage(const uint8_t *buf, int buf_size) {
   return buf_size;
 }
 
-void SynthUnit::GetSamples(int n_samples, int16_t *buffer) {
+void SynthUnit::GetSamples(int n_samples, int16_t *bufferL, int16_t *bufferR) {
   TransferInput();
   size_t input_offset;
   for (input_offset = 0; input_offset < input_buffer_index_; ) {
@@ -254,11 +262,13 @@ void SynthUnit::GetSamples(int n_samples, int16_t *buffer) {
 
   int i;
   for (i = 0; i < n_samples && i < extra_buf_size_; i++) {
-    buffer[i] = extra_buf_[i];
+    bufferL[i] = extra_buf_L[i];
+    bufferR[i] = extra_buf_R[i];
   }
   if (extra_buf_size_ > n_samples) {
     for (int j = 0; j < extra_buf_size_ - n_samples; j++) {
-      extra_buf_[j] = extra_buf_[j + n_samples];
+      extra_buf_L[j] = extra_buf_L[j + n_samples];
+      extra_buf_R[j] = extra_buf_R[j + n_samples];
     }
     extra_buf_size_ -= n_samples;
     return;
@@ -266,31 +276,39 @@ void SynthUnit::GetSamples(int n_samples, int16_t *buffer) {
 
   for (; i < n_samples; i += N) {
     AlignedBuf<int32_t, N> audiobuf;
-    AlignedBuf<int32_t, N> audiobuf2;
+    AlignedBuf<int32_t, N> audiobufL;
+    AlignedBuf<int32_t, N> audiobufR;
     for (int j = 0; j < N; ++j) {
       audiobuf.get()[j] = 0;
+      audiobufL.get()[j] = 0;
+      audiobufR.get()[j] = 0;
     }
     int32_t lfovalue = lfo_.getsample();
     int32_t lfodelay = lfo_.getdelay();
     for (int note = 0; note < max_active_notes; ++note) {
       if (active_note_[note].live) {
-        active_note_[note].dx7_note->compute(audiobuf.get(), lfovalue, lfodelay,
+        active_note_[note].dx7_note->compute(audiobuf.get(), audiobufL.get(), audiobufR.get(), lfovalue, lfodelay,
           &controllers_);
       }
     }
-    int32_t *bufs[] = { audiobuf.get() };
+    // int32_t *bufsL[] = { audiobufL.get() };
+    // int32_t *bufsR[] = { audiobufR.get() };
     /* JJK int32_t *bufs2[] = { audiobuf2.get() };
     filter_.process(bufs, filter_control_, filter_control_, bufs2); */
     int jmax = n_samples - i;
     for (int j = 0; j < N; ++j) {
       // JJK int32_t val = audiobuf2.get()[j] >> 4;
-		int32_t val = audiobuf.get()[j] >> 4;
-      int clip_val = val < -(1 << 24) ? 0x8000 : val >= (1 << 24) ? 0x7fff : val >> 9;
+		int32_t valL = audiobufL.get()[j] >> 4;
+		int32_t valR = audiobufR.get()[j] >> 4;
+      int clip_val_L = valL < -(1 << 24) ? 0x8000 : valL >= (1 << 24) ? 0x7fff : valL >> 9;
+      int clip_val_R = valR < -(1 << 24) ? 0x8000 : valR >= (1 << 24) ? 0x7fff : valR >> 9;
       // TODO: maybe some dithering?
       if (j < jmax) {
-        buffer[i + j] = clip_val;
+        bufferL[i + j] = clip_val_L;
+        bufferR[i + j] = clip_val_R;
       } else {
-        extra_buf_[j - jmax] = clip_val;
+        extra_buf_L[j - jmax] = clip_val_L;
+        extra_buf_R[j - jmax] = clip_val_R;
       }
     }
   }

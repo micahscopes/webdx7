@@ -35,6 +35,12 @@ const int32_t coarsemul[] = {
     81503396, 82323963, 83117622
 };
 
+void Dx7Note::init_sr(double sr) {
+    sample_rate = sr/1000.0;
+}
+
+double Dx7Note::sample_rate;
+
 int32_t Dx7Note::osc_freq(int midinote, int mode, int coarse, int fine, int detune) {
     // TODO: pitch randomization
     int32_t logfreq;
@@ -138,9 +144,13 @@ Dx7Note::Dx7Note(std::shared_ptr<TuningState> ts) : tuning_state_(ts) {
         params_[op].phase = 0;
         params_[op].gain_out = 0;
     }
+    // target_panning = 64.0;
+    // current_panning = 64.0;
+    // panning_intermediate = 64.0;
 }
 
-void Dx7Note::init(const uint8_t patch[156], int midinote, int velocity) {
+void Dx7Note::init(const uint8_t patch[156], int midinote, int velocity, int pan) {
+    target_panning = (double) pan;
     int rates[4];
     int levels[4];
     playingMidiNote = midinote;
@@ -189,7 +199,7 @@ void Dx7Note::init(const uint8_t patch[156], int midinote, int velocity) {
     mpePressure = 0;
 }
 
-void Dx7Note::compute(int32_t *buf, int32_t lfo_val, int32_t lfo_delay, const Controllers *ctrls) {
+void Dx7Note::compute(int32_t *buf, int32_t *bufL, int32_t *bufR, int32_t lfo_val, int32_t lfo_delay, const Controllers *ctrls) {
     // ==== PITCH ====
     uint32_t pmd = pitchmoddepth_ * lfo_delay;  // Q32
     int32_t senslfo = pitchmodsens_ * (lfo_val - (1 << 23));
@@ -276,7 +286,20 @@ void Dx7Note::compute(int32_t *buf, int32_t lfo_val, int32_t lfo_delay, const Co
             params_[op].level_in = level;
         }
     }
+
+    const double c0 = (44.0999985 / min(192000.0, max(1.0, 48000.0)))/4.0;
+    const double c1 = (1.0 - c0);
+
+    // double eps = 0.1;
     ctrls->core->render(buf, params_, algorithm_, fb_buf_, fb_shift_);
+    int i;
+    for (int i=0; i<N; i++) {
+        // current_panning = c0 * target_panning + (c1 * panning_intermediate);
+        // panning_intermediate = current_panning;
+
+        bufL[i] = (int32_t) buf[i] * (127.0 - target_panning)/127.0;
+        bufR[i] = (int32_t) buf[i] * target_panning/127.0;
+    }
 }
 
 void Dx7Note::keyup() {

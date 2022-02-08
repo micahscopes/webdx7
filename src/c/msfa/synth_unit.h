@@ -23,6 +23,7 @@
 
 struct ActiveNote {
   int midi_note;
+  // double panning;
   bool keydown;
   bool sustained;
   bool live;
@@ -35,7 +36,7 @@ class SynthUnit {
 
   explicit SynthUnit(RingBuffer *ring_buffer);
 
-  void GetSamples(int n_samples, int16_t *buffer);
+  void GetSamples(int n_samples, int16_t *bufferL, int16_t *bufferR);
  private:
   void TransferInput();
 
@@ -75,7 +76,8 @@ class SynthUnit {
   bool sustain_;
 
   // Extra buffering for when GetSamples wants a buffer not a multiple of N
-  int16_t extra_buf_[N];
+  int16_t extra_buf_L[N];
+  int16_t extra_buf_R[N];
   int extra_buf_size_;
 
 // JJK
