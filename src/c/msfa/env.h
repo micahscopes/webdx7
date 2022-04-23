@@ -1,13 +1,13 @@
 /*
- * Copyright 2017 Pascal Gauthier. 
+ * Copyright 2017 Pascal Gauthier.
  * Copyright 2012 Google Inc.
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *      http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -32,7 +32,7 @@ class Env {
   // (ie units of approx .023 dB), with 99 * 32 = nominal full scale. The
   // rate_scaling parameter is in qRate units (ie 0..63).
   void init(const int rates[4], const int levels[4], int outlevel,
-      int rate_scaling);
+      int rate_scaling, uint32_t op_auto_dampening_threshold, int32_t op_note_off_dampening_rate);
 
   void update(const int rates[4], const int levels[4], int outlevel,
       int rate_scaling);
@@ -45,17 +45,22 @@ class Env {
   int32_t getsample();
 
   void keydown(bool down);
+  bool dampened();
   static int scaleoutlevel(int outlevel);
   void getPosition(char *step);
-    
+
   static void init_sr(double sample_rate);
   void transfer(Env &src);
-    
+
  private:
 
   // PG: This code is normalized to 44100, need to put a multiplier
   // if we are not using 44100.
   static uint32_t sr_multiplier;
+
+  // extra dampening parameters (non-standard)
+  uint32_t dampening_threshold = 0;
+  int32_t note_off_dampening_rate = 0;
 
   int rates_[4];
   int levels_[4];

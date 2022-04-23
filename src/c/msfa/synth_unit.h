@@ -53,8 +53,15 @@ class SynthUnit {
   int ProcessMidiMessage(const uint8_t *buf, int buf_size);
 
   RingBuffer *ring_buffer_;
-  static const int max_active_notes = 16;
-  ActiveNote active_note_[max_active_notes];
+  const uint8_t AUX_PARAM_POLYPHONY = 156;
+  const uint8_t AUX_PARAM_OP_AUTO_DAMPENING_THRESHOLD = 157;
+  const uint8_t AUX_PARAM_OP_NOTE_OFF_dampening_rate = 158;
+
+  int32_t op_auto_dampening_threshold = 0;
+  int32_t op_note_off_dampening_rate = 0;
+
+  unsigned short max_active_notes = 128;
+  ActiveNote active_note_[128];
   int current_note_;
   uint8_t input_buffer_[8192];
   size_t input_buffer_index_;
@@ -81,5 +88,5 @@ class SynthUnit {
 // JJK
 public:
 	void onPatch(const uint8_t* patch, uint32_t size);
-	void onParam(uint32_t id, char value);
+	void onParam(uint32_t id, double value);
 };

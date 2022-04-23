@@ -78,6 +78,7 @@ int ScaleVelocity(int velocity, int sensitivity) {
     return scaled_vel;
 }
 
+#define SUPER_PRECISE
 int ScaleRate(int midinote, int sensitivity) {
     int x = min(31, max(0, midinote / 3 - 7));
     int qratedelta = (sensitivity * x) >> 3;
@@ -140,7 +141,8 @@ Dx7Note::Dx7Note(std::shared_ptr<TuningState> ts) : tuning_state_(ts) {
     }
 }
 
-void Dx7Note::init(const uint8_t patch[156], int midinote, int velocity) {
+void Dx7Note::init(const uint8_t patch[156], int midinote, int velocity, uint32_t op_auto_dampening_threshold, uint32_t op_note_off_dampening_rate) {
+    sleeping = false;
     int rates[4];
     int levels[4];
     int transpose = patch[144] - 24;
@@ -161,7 +163,7 @@ void Dx7Note::init(const uint8_t patch[156], int midinote, int velocity) {
         outlevel += ScaleVelocity(velocity, patch[off + 15]);
         outlevel = max(0, outlevel);
         int rate_scaling = ScaleRate(playingMidiNote, patch[off + 13]);
-        env_[op].init(rates, levels, outlevel, rate_scaling);
+        env_[op].init(rates, levels, outlevel, rate_scaling, op_auto_dampening_threshold, op_note_off_dampening_rate);
 
         int mode = patch[off + 17];
         int coarse = patch[off + 18];
@@ -188,6 +190,15 @@ void Dx7Note::init(const uint8_t patch[156], int midinote, int velocity) {
     mpePitchBend = 8192;
     mpeTimbre = 0;
     mpePressure = 0;
+}
+
+bool Dx7Note::dampened(){
+    if (sleeping) return sleeping;
+
+    for (int i = 0; i < 6; i++) {
+        sleeping = sleeping && env_[i].dampened();
+    }
+    return sleeping;
 }
 
 void Dx7Note::compute(int32_t *buf, int32_t lfo_val, int32_t lfo_delay, const Controllers *ctrls) {

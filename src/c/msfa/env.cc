@@ -48,11 +48,13 @@ void Env::init_sr(double sampleRate) {
     sr_multiplier = (44100.0 / sampleRate) * (1<<24);
 }
 
-void Env::init(const int r[4], const int l[4], int ol, int rate_scaling) {
+void Env::init(const int r[4], const int l[4], int ol, int rate_scaling, uint32_t op_auto_dampening_threshold, int32_t op_note_off_dampening_rate) {
     for (int i = 0; i < 4; i++) {
         rates_[i] = r[i];
         levels_[i] = l[i];
     }
+    dampening_threshold = op_auto_dampening_threshold;
+    note_off_dampening_rate = op_note_off_dampening_rate;
     outlevel_ = ol;
     rate_scaling_ = rate_scaling;
     level_ = 0;
@@ -96,6 +98,13 @@ int32_t Env::getsample() {
         }
     }
     // TODO: this would be a good place to set level to 0 when under threshold
+    if (!down_) {
+        level_ = level_ - min(level_, note_off_dampening_rate);
+    }
+
+    if (level_ < dampening_threshold) {
+        level_ = 0;
+    }
     return level_;
 }
 
@@ -104,6 +113,10 @@ void Env::keydown(bool d) {
         down_ = d;
         advance(d ? 0 : 3);
     }
+}
+
+bool Env::dampened() {
+    return !down_ && level_ == 0;
 }
 
 int Env::scaleoutlevel(int outlevel) {

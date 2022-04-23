@@ -60,7 +60,7 @@ void DX7::onPatch(void* patch, uint32_t size)
 
 void DX7::onParam(uint32_t idparam, double value)
 {
-	synth_unit_->onParam(idparam, (char)value);
+	synth_unit_->onParam(idparam, value);
 }
 
 void DX7::onProcess(WAM::AudioBus* audio, void* data)

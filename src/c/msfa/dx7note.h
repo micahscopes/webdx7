@@ -39,7 +39,7 @@ struct VoiceStatus {
 class Dx7Note {
 public:
     Dx7Note(std::shared_ptr<TuningState> ts);
-    void init(const uint8_t patch[156], int midinote, int velocity);
+    void init(const uint8_t patch[156], int midinote, int velocity, uint32_t op_auto_dampening_threshold, uint32_t op_note_off_dampening_rate);
 
     // Note: this _adds_ to the buffer. Interesting question whether it's
     // worth it...
@@ -47,6 +47,7 @@ public:
                  const Controllers *ctrls);
 
     void keyup();
+    bool dampened();
 
     // TODO: some way of indicating end-of-note. Maybe should be a return
     // value from the compute method? (Having a count return from keyup
@@ -59,6 +60,7 @@ public:
     void transferState(Dx7Note& src);
     void transferSignal(Dx7Note &src);
     void oscSync();
+    // bool shouldDampen();
 
     int32_t osc_freq(int midinote, int mode, int coarse, int fine, int detune);
 
@@ -78,6 +80,7 @@ private:
     int32_t fb_shift_;
     int32_t ampmodsens_[6];
     int32_t opMode[6];
+    bool sleeping = true;
 
     uint8_t playingMidiNote; // We need this for scale aware pitch bend
 

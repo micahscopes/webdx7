@@ -11,7 +11,7 @@ class DX7 extends WAMController
 
     super(actx, "DX7", options);
   }
-  
+
   static importScripts (actx) {
     var origin = location.origin + "/";
     return new Promise( (resolve) => {
@@ -20,7 +20,7 @@ class DX7 extends WAMController
       actx.audioWorklet.addModule(origin + "../wamsdk/wam-processor.js").then(() => {
       actx.audioWorklet.addModule(origin + "dx7/dx7-awp.js").then(() => {
         resolve();
-      }) }) }) });      
+      }) }) }) });
     })
   }
 }

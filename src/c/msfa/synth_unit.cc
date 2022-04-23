@@ -159,7 +159,7 @@ int SynthUnit::ProcessMidiMessage(const uint8_t *buf, int buf_size) {
         active_note_[note_ix].keydown = true;
         active_note_[note_ix].sustained = sustain_;
         active_note_[note_ix].live = true;
-        active_note_[note_ix].dx7_note->init((uint8_t *) unpacked_patch_, buf[1], buf[2]);
+        active_note_[note_ix].dx7_note->init((uint8_t *) unpacked_patch_, buf[1], buf[2], op_auto_dampening_threshold, op_note_off_dampening_rate);
       }
       return 3;
     }
@@ -273,7 +273,9 @@ void SynthUnit::GetSamples(int n_samples, int16_t *buffer) {
     int32_t lfovalue = lfo_.getsample();
     int32_t lfodelay = lfo_.getdelay();
     for (int note = 0; note < max_active_notes; ++note) {
-      if (active_note_[note].live) {
+      if (active_note_[note].live
+      && !active_note_[note].dx7_note->dampened()
+      ) {
         active_note_[note].dx7_note->compute(audiobuf.get(), lfovalue, lfodelay,
           &controllers_);
       }
@@ -311,7 +313,15 @@ void SynthUnit::onPatch(const uint8_t* patch, uint32_t size)
 	lfo_.reset((const char *)unpacked_patch_ + 137);
 }
 
-void SynthUnit::onParam(uint32_t id, char value)
+void SynthUnit::onParam(uint32_t id, double value)
 {
-	unpacked_patch_[id] = value;
+  if (id<156) {
+  	unpacked_patch_[id] = (char)value;
+  } else if (id == AUX_PARAM_POLYPHONY){
+    max_active_notes = (unsigned short) value;
+  } else if (id == AUX_PARAM_OP_AUTO_DAMPENING_THRESHOLD) {
+    op_auto_dampening_threshold = (int32_t) value;
+  } else if (id == AUX_PARAM_OP_NOTE_OFF_dampening_rate) {
+    op_note_off_dampening_rate = (int32_t) value;
+  }
 }
