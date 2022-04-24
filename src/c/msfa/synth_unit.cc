@@ -61,7 +61,7 @@ void SynthUnit::Init(double sample_rate) {
 SynthUnit::SynthUnit(RingBuffer *ring_buffer) {
   ring_buffer_ = ring_buffer;
 
-  for (int note = 0; note < max_active_notes; ++note) {
+  for (int note = 0; note < 256; ++note) {
     active_note_[note].dx7_note = new Dx7Note(createStandardTuning());
     active_note_[note].keydown = false;
     active_note_[note].sustained = false;
@@ -318,7 +318,7 @@ void SynthUnit::onParam(uint32_t id, double value)
   if (id<156) {
   	unpacked_patch_[id] = (char)value;
   } else if (id == AUX_PARAM_POLYPHONY){
-    max_active_notes = (unsigned short) value;
+    max_active_notes = (uint8_t) min(value, 256.0);
   } else if (id == AUX_PARAM_OP_AUTO_DAMPENING_THRESHOLD) {
     op_auto_dampening_threshold = (int32_t) value;
   } else if (id == AUX_PARAM_OP_NOTE_OFF_dampening_rate) {

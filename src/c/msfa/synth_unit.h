@@ -60,8 +60,8 @@ class SynthUnit {
   int32_t op_auto_dampening_threshold = 0;
   int32_t op_note_off_dampening_rate = 0;
 
-  unsigned short max_active_notes = 128;
-  ActiveNote active_note_[128];
+  uint8_t max_active_notes = 16;
+  ActiveNote active_note_[256];
   int current_note_;
   uint8_t input_buffer_[8192];
   size_t input_buffer_index_;
